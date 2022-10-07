@@ -1,10 +1,15 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:expandable_page_view/expandable_page_view.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:instagram_flutter/models/post_comment.dart';
+import 'package:instagram_flutter/screens/comments_page.dart';
 import 'package:instagram_flutter/screens/story_page.dart';
 import 'package:instagram_flutter/utils/colors.dart';
 import 'package:instagram_flutter/utils/images.dart';
+import 'package:instagram_flutter/widgets/post_comment.dart';
+import 'package:instagram_flutter/widgets/post_title_widget.dart';
 
 import '../models/post_model.dart';
 
@@ -100,6 +105,7 @@ class _HomePageState extends State<HomePage> {
   Widget postItem(PostModel post) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -144,14 +150,29 @@ class _HomePageState extends State<HomePage> {
             );
           },
         ),
-        postActions(post)
+        postActions(post),
+        Padding(
+            padding: EdgeInsets.only(left: 12),
+            child: Text(
+              "${post.likeCount} likes",
+              style: TextStyle(fontWeight: FontWeight.w700),
+            )),
+        const SizedBox(height: 8),
+        PostTitle(
+            post: post,
+            moreTap: () {
+              setState(() {
+                post.isTitleExpanded = !post.isTitleExpanded;
+              });
+            }),
+        postCommentsAndAddComment(post)
       ],
     );
   }
 
   Widget postActions(PostModel post) {
     return Padding(
-      padding: EdgeInsets.only(left: 12, top: 9, right: 0, bottom: 9),
+      padding: EdgeInsets.only(left: 12, top: 9, right: 0, bottom: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -171,7 +192,16 @@ class _HomePageState extends State<HomePage> {
                       ),
               ),
               SizedBox(width: 8),
-              SvgPicture.asset(MyImages.icon_comment, width: 24),
+              InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CommentsPage(post: post),
+                      ),
+                    );
+                  },
+                  child: SvgPicture.asset(MyImages.icon_comment, width: 24)),
               SizedBox(width: 8),
               SvgPicture.asset(
                 MyImages.icon_share,
@@ -238,6 +268,126 @@ class _HomePageState extends State<HomePage> {
         separatorBuilder: (BuildContext context, int index) {
           return SizedBox(width: 4);
         },
+      ),
+    );
+  }
+
+  Widget postTitle(PostModel post) {
+    return Padding(
+      padding: EdgeInsets.only(left: 12),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: "${post.userName}  ",
+              style:
+                  TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+            ),
+            TextSpan(
+              text: post.title.substring(
+                0,
+                !post.isTitleExpanded
+                    ? (post.title.length > 90 ? 90 : post.title.length)
+                    : post.title.length,
+              ),
+              style: TextStyle(color: Colors.black),
+            ),
+            TextSpan(
+              text: !post.isTitleExpanded
+                  ? (post.title.length > 90 ? "... more" : "")
+                  : "\nshow less",
+              style: TextStyle(color: Colors.grey),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () {
+                  setState(() {
+                    post.isTitleExpanded = !post.isTitleExpanded;
+                  });
+                },
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  String newComment = "";
+  var controller = TextEditingController();
+
+  Widget postCommentsAndAddComment(PostModel post) {
+    return Padding(
+      padding: EdgeInsets.only(left: 12, top: 4),
+      child: Column(
+        children: [
+          const SizedBox(height: 4),
+          ListView.builder(
+            physics: NeverScrollableScrollPhysics(),
+            primary: false,
+            shrinkWrap: true,
+            itemCount: post.comments.length,
+            itemBuilder: (BuildContext context, int index) {
+              return PostCommentWidget(comment: post.comments[index]);
+            },
+          ),
+          SizedBox(height: 4),
+          Row(
+            children: [
+              Container(
+                height: 25,
+                width: 25,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                      image: NetworkImage("${PostModel.baseUrl}${40}.jpg"),
+                      fit: BoxFit.cover),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  onChanged: (value) {
+                    setState(() {
+                      newComment = value;
+                    });
+                  },
+                  onTap: () {},
+                  decoration: InputDecoration(
+                    hintText: 'Add comment...',
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              TextButton(
+                style: ButtonStyle(),
+                onPressed: newComment.isNotEmpty
+                    ? () {
+                        setState(() {
+                          if (newComment.isNotEmpty) {
+                            post.comments.add(
+                              PostComment(
+                                "User",
+                                "",
+                                "$newComment",
+                              ),
+                            );
+                            newComment = "";
+                            controller.text = "";
+                          }
+                        });
+                      }
+                    : null,
+                child: Text(
+                  "Post",
+                  style: TextStyle(
+                    color: newComment.isNotEmpty
+                        ? Colors.blue
+                        : Colors.blue.withOpacity(0.5),
+                  ),
+                ),
+              )
+            ],
+          )
+        ],
       ),
     );
   }
